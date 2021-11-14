@@ -114,8 +114,8 @@ def insertIncome(income: Transaction):
         ]
     }
     result = sheet.values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=INCOME_RANGE,
-                                   includeValuesInResponse=True, insertOptions="OVERWRITE",
-                                   insertDataOption="INSERT_ROWS", valueInputOption="USER_ENTERED",
+                                   includeValuesInResponse=True,
+                                   insertDataOption="OVERWRITE", valueInputOption="USER_ENTERED",
                                    body=transaction).execute()
     pprint(result)
 
