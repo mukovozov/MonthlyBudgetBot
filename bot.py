@@ -4,6 +4,8 @@
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 import logging
 import re
+from pprint import pprint
+
 import quickstart
 
 from typing import List, Union
@@ -20,29 +22,39 @@ from telegram.ext import (
     MessageFilter, CallbackQueryHandler
 )
 
+from model import Transaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES
+
 token = "2114958133:AAFCxSS4KHiLlf8Baq4PrL6g_fvfzfL7wT8"
 
 regex = '^(Питание|Супермаркет|Здоровье/медицина|Дом|Транспорт|Личные расходы|Коммунальные услуги|Путешествия|Задолженности|Другое|Накопления|Связь|Еда вне дома|)$'
 
+income_regex = '^(Сбережения|Зарплата|Премия|Процентный доход|Корзина|Категория 1)$'
+
 AMOUNT, DESCRIPTION, CATEGORY = range(3)
 
-EXPENSE_CATEGORIES = ['Питание', 'Супермаркет', 'Здоровье/медицина', 'Дом', 'Транспорт', 'Личные расходы',
-                      'Коммунальные услуги', 'Путешествия', 'Задолженности', 'Другое', 'Накопления', 'Связь',
-                      'Еда вне дома']
+INCOME_AMOUNT, INCOME_DESCRIPTION, INCOME_CATEGORY = range(3)
 
 
-class Transaction:
-    amount = 0
-    description = ""
-    category = EXPENSE_CATEGORIES[0]
+class CategoriesFilter(MessageFilter):
+    def __init__(self, categories):
+        self.categories = categories
 
-
-class ExpenseCategoriesFilter(MessageFilter):
     def filter(self, message):
-        return message.text in EXPENSE_CATEGORIES
+        return message.text in self.categories
+
+
+class ExpenseCategoriesFilter(CategoriesFilter):
+    def __init__(self):
+        super().__init__(EXPENSE_CATEGORIES)
+
+
+class IncomeCategoriesFilter(CategoriesFilter):
+    def __init__(self):
+        super().__init__(INCOME_CATEGORIES)
 
 
 transaction = Transaction()
+incomeTransaction = Transaction()
 
 
 def botSetup():
@@ -52,6 +64,7 @@ def botSetup():
                         level=logging.INFO)
 
     expenses_filter = ExpenseCategoriesFilter()
+    income_filter = IncomeCategoriesFilter()
 
     start_handler = CommandHandler('start', start)
     dispatcher.add_handler(start_handler)
@@ -66,13 +79,64 @@ def botSetup():
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
+    income_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('income', income)],
+        states={
+            INCOME_AMOUNT: [MessageHandler(Filters.regex('^([0-9]+)$'), incomeAmount)],
+            DESCRIPTION: [MessageHandler(Filters.text, incomeDescription)],
+            CATEGORY: [MessageHandler(income_filter, incomeCategory),
+                       CallbackQueryHandler(incomeCategory, pattern=income_regex)]
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+    )
     dispatcher.add_handler(conv_handler)
+    dispatcher.add_handler(income_conv_handler)
 
     updater.start_polling()
 
 
 def cancel(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="bye")
+
+
+def income(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Сколько прилетело? 💸")
+
+    return INCOME_AMOUNT
+
+
+def incomeAmount(update, context):
+    incomeTransaction.amount = update.message.text
+    context.bot.send_message(chat_id=update.effective_chat.id, text="За что такие деньги?")
+
+    return INCOME_DESCRIPTION
+
+
+def incomeDescription(update, context):
+    incomeTransaction.description = update.message.text
+
+    result = map(buttonFromCategory, INCOME_CATEGORIES)
+    keyboard = list(result)
+
+    reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=1))
+
+    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+
+    return INCOME_CATEGORY
+
+
+def incomeCategory(update, context):
+    pprint(update.callback_query.data)
+    query = update.callback_query
+    query.answer()
+
+    incomeTransaction.category = query.data
+
+    quickstart.insertIncome(incomeTransaction)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Получку записал, работаем дальше.")
+
+    return ConversationHandler.END
 
 
 def expense(update, context):
@@ -126,7 +190,7 @@ def expenseCategory(update, context):
 
     transaction.category = query.data
 
-    quickstart.insertTransaction(transaction.amount, transaction.description, transaction.category)
+    quickstart.insertTransaction(transaction)
 
     context.bot.send_message(chat_id=update.effective_chat.id, text="Взяли на карандашик, беги дальше. Кабанчик. <3")
 
