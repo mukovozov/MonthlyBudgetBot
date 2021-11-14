@@ -114,8 +114,9 @@ def insertIncome(income: Transaction):
         ]
     }
     result = sheet.values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=INCOME_RANGE,
-                                   includeValuesInResponse=True, insertDataOption="INSERT_ROWS",
-                                   valueInputOption="USER_ENTERED", body=transaction).execute()
+                                   includeValuesInResponse=True, insertOptions="OVERWRITE",
+                                   insertDataOption="INSERT_ROWS", valueInputOption="USER_ENTERED",
+                                   body=transaction).execute()
     pprint(result)
 
 
@@ -140,7 +141,6 @@ def insertTransaction(transaction: Transaction):
 
     service = build('sheets', 'v4', credentials=creds)
     sheet = service.spreadsheets()
-
 
     today = date.today().strftime("%d.%m.%Y")
     transaction = {
