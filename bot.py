@@ -22,7 +22,7 @@ from telegram.ext import (
     MessageFilter, CallbackQueryHandler
 )
 
-from model import Transaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES
+from model import Transaction
 
 token = "2114958133:AAFCxSS4KHiLlf8Baq4PrL6g_fvfzfL7wT8"
 
@@ -44,13 +44,13 @@ class CategoriesFilter(MessageFilter):
 
 
 class ExpenseCategoriesFilter(CategoriesFilter):
-    def __init__(self):
-        super().__init__(EXPENSE_CATEGORIES)
+    def __init__(self, categories):
+        super().__init__(categories)
 
 
 class IncomeCategoriesFilter(CategoriesFilter):
-    def __init__(self):
-        super().__init__(INCOME_CATEGORIES)
+    def __init__(self, categories):
+        super().__init__(categories)
 
 
 transaction = Transaction()
@@ -63,8 +63,13 @@ def botSetup():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.INFO)
 
-    expenses_filter = ExpenseCategoriesFilter()
-    income_filter = IncomeCategoriesFilter()
+    expenseCategories = quickstart.loadExpenseCategories()
+    expensesRegex = "^(" + "|".join(expenseCategories) + ")$"
+    expenses_filter = ExpenseCategoriesFilter(expenseCategories)
+
+    incomeCategories = quickstart.loadIncomeCategories()
+    incomeRegex = "^(" + "|".join(incomeCategories) + ")$"
+    income_filter = IncomeCategoriesFilter(incomeCategories)
 
     start_handler = CommandHandler('start', start)
     dispatcher.add_handler(start_handler)
@@ -75,7 +80,7 @@ def botSetup():
             AMOUNT: [MessageHandler(Filters.regex('^([0-9]+)$'), amount)],
             DESCRIPTION: [MessageHandler(Filters.text, description)],
             CATEGORY: [MessageHandler(expenses_filter, expenseCategory),
-                       CallbackQueryHandler(expenseCategory, pattern=regex)]
+                       CallbackQueryHandler(expenseCategory, pattern=expensesRegex)]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
@@ -85,7 +90,7 @@ def botSetup():
             INCOME_AMOUNT: [MessageHandler(Filters.regex('^([0-9]+)$'), incomeAmount)],
             DESCRIPTION: [MessageHandler(Filters.text, incomeDescription)],
             CATEGORY: [MessageHandler(income_filter, incomeCategory),
-                       CallbackQueryHandler(incomeCategory, pattern=income_regex)]
+                       CallbackQueryHandler(incomeCategory, pattern=incomeRegex)]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
@@ -115,7 +120,8 @@ def incomeAmount(update, context):
 def incomeDescription(update, context):
     incomeTransaction.description = update.message.text
 
-    result = map(buttonFromCategory, INCOME_CATEGORIES)
+    incomeCategories = quickstart.loadIncomeCategories()
+    result = map(buttonFromCategory, incomeCategories)
     keyboard = list(result)
 
     reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=1))
@@ -156,7 +162,8 @@ def description(update, context):
     """Sends a message with three inline buttons attached."""
     transaction.description = update.message.text
 
-    result = map(buttonFromCategory, EXPENSE_CATEGORIES)
+    expenseCategories = quickstart.loadExpenseCategories()
+    result = map(buttonFromCategory, expenseCategories)
     keyboard = list(result)
 
     reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=1))

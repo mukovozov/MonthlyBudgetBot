@@ -13,13 +13,13 @@ from google.oauth2.credentials import Credentials
 # If modifying these scopes, delete the file token.json.
 from model import Transaction
 
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive']
 
 # The ID and range of a sample spreadsheet.
 SAMPLE_SPREADSHEET_ID = '1CHLl7uc_DQ4ysgi_ELMlKlb9ATvwAOdvOWUgiVbakbE'
-SAMPLE_RANGE_NAME = 'B:C'
-EXPENSES_CATEGORIES_RANGE = 'B22:C34'
-INCOME_CATEGORIES_RANGE = 'H22:I27'
+EXPENSES_CATEGORIES_RANGE = 'ExpenseCategories'
+INCOME_CATEGORIES_RANGE = 'IncomeCategories'
 TRANSACTIONS_RANGE = 'Transactions'
 INCOME_RANGE = 'Income'
 
@@ -50,37 +50,16 @@ def main():
     sheet = service.spreadsheets()
 
     # Call the Sheets API
-    # loadCategories(service, EXPENSES_CATEGORIES_RANGE)
-    # loadCategories(service, INCOME_CATEGORIES_RANGE)
+    expense_categories = loadCategories(EXPENSES_CATEGORIES_RANGE)
+    print(expense_categories)
+    print('\n')
+    incomeCategories = loadCategories(INCOME_CATEGORIES_RANGE)
+    print(incomeCategories)
     # loadTransactions(sheet)
     # insertTransaction(sheet, amount, description, category)
 
 
-def loadCategories(sheet, categories_range):
-    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                range=categories_range).execute()
-    values = result.get('values', [])
-    if not values:
-        print('No data found.')
-    else:
-        print('Categories')
-        for row in values:
-            print(row[0])
-
-
-def loadTransactions(sheet):
-    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                range=TRANSACTIONS_RANGE).execute()
-    values = result.get('values', [])
-    if not values:
-        print('No data found.')
-    else:
-        print('Categories')
-        for row in values:
-            print(row[0], row[1], row[2], row[3])
-
-
-def insertIncome(income: Transaction):
+def setupSheet():
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -101,7 +80,47 @@ def insertIncome(income: Transaction):
 
     service = build('sheets', 'v4', credentials=creds)
     sheet = service.spreadsheets()
+    return sheet
 
+
+def loadExpenseCategories():
+    return loadCategories(EXPENSES_CATEGORIES_RANGE)
+
+
+def loadIncomeCategories():
+    return loadCategories(INCOME_CATEGORIES_RANGE)
+
+
+def loadCategories(categories_range):
+    sheet = setupSheet()
+    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                range=categories_range).execute()
+    categories = []
+    values = result.get('values', [])
+    if not values:
+        print('No data found.')
+    else:
+        for row in values:
+            category = row[0]
+            categories.append(category)
+
+    return categories
+
+
+def loadTransactions(sheet):
+    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                range=TRANSACTIONS_RANGE).execute()
+    values = result.get('values', [])
+    if not values:
+        print('No data found.')
+    else:
+        print('Categories')
+        for row in values:
+            print(row[0], row[1], row[2], row[3])
+
+
+def insertIncome(income: Transaction):
+    sheet = setupSheet()
     today = date.today().strftime("%d.%m.%Y")
     transaction = {
         "values": [
@@ -121,26 +140,7 @@ def insertIncome(income: Transaction):
 
 
 def insertTransaction(transaction: Transaction):
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-
-    service = build('sheets', 'v4', credentials=creds)
-    sheet = service.spreadsheets()
+    sheet = setupSheet()
 
     today = date.today().strftime("%d.%m.%Y")
     transaction = {
