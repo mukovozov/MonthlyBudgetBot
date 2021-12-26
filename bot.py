@@ -124,7 +124,7 @@ def incomeDescription(update, context):
     result = map(buttonFromCategory, incomeCategories)
     keyboard = list(result)
 
-    reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=1))
+    reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=2))
 
     update.message.reply_text('Please choose:', reply_markup=reply_markup)
 
@@ -166,7 +166,7 @@ def description(update, context):
     result = map(buttonFromCategory, expenseCategories)
     keyboard = list(result)
 
-    reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=1))
+    reply_markup = InlineKeyboardMarkup(build_menu(keyboard, n_cols=2))
 
     update.message.reply_text('Please choose:', reply_markup=reply_markup)
 
